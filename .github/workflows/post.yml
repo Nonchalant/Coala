@@ -1,0 +1,52 @@
+name: Post
+
+on:
+    # schedule:
+    #   - cron:  '0 8 * * 1-5' #UTC
+    workflow_dispatch:
+    
+jobs:
+  deploy:
+    runs-on: macos-latest
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      - name: Restore questions.json and talks.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SSO_GITHUB_TOKEN: ${{ secrets.SSO_GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}    
+        run: ./Scripts/restore.sh
+
+      - name: Check talks.json
+        id: check
+        run: ./Scripts/check.sh talks.json
+
+      - name: Setup
+        run: brew install libressl
+        if: steps.check.outputs.valid == 'true'
+
+      - name: Cache .build
+        uses: actions/cache@v2	
+        with:	
+          path: .build
+          key: ${{ runner.os }}-build-v1-${{ hashFiles('Package.swift') }}-${{ hashFiles('Package.resolved') }}
+        if: steps.check.outputs.valid == 'true'
+
+      - name: Post
+        run: swift build && .build/debug/Coala post $SLACK_TOKEN $CHANNEL_ID
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+        if: steps.check.outputs.valid == 'true'
+
+      - name: Cache questions.json and talks.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: ./Scripts/cache.sh
+        if: steps.check.outputs.valid == 'true'

@@ -1,0 +1,44 @@
+name: Question
+
+on:
+    # schedule:
+    #   - cron:  '0 6 * * 1,3,5' #UTC
+    workflow_dispatch:
+    
+jobs:
+  deploy:
+    runs-on: macos-latest
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      - name: Setup
+        run: brew install libressl
+
+      - name: Restore questions.json and talks.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SSO_GITHUB_TOKEN: ${{ secrets.SSO_GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: ./Scripts/restore.sh
+      
+      - name: Cache .build
+        uses: actions/cache@v2	
+        with:	
+          path: .build
+          key: ${{ runner.os }}-build-v1-${{ hashFiles('Package.swift') }}-${{ hashFiles('Package.resolved') }}
+
+      - name: Question
+        run: swift build && .build/debug/Coala question $SLACK_TOKEN $CHANNEL_ID
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+
+      - name: Cache questions.json and talks.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: ./Scripts/cache.sh

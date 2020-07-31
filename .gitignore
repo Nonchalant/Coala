@@ -1,0 +1,10 @@
+.DS_Store
+/.build
+/DerivedData
+/Packages
+/*.xcodeproj
+xcuserdata/
+questions.json
+talks.json
+old-questions.json
+old-talks.json
